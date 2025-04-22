@@ -38,7 +38,7 @@ type SpdmMeasurementResponseMessage struct {
 	Param1              uint8
 	Param2              uint8
 	NumberOfBlocks      uint8
-	MeasurementRecord   []byte
+	MeasurementRecords  []MeasurementRecord
 	Nonce               [32]byte
 	OpaqueData          []byte
 	Signature           []byte
@@ -57,16 +57,27 @@ func ParseSpdmMeasurementResponseMessage(data []byte, signatureLength int) (*Spd
 		Param1:              data[2],
 		Param2:              data[3],
 		NumberOfBlocks:      data[4],
-		MeasurementRecord:   make([]byte, mrRecordLength),
+		MeasurementRecords:  nil,
 		Nonce:               [32]byte{},
 		OpaqueData:          make([]byte, opaqueLength),
 		Signature:           make([]byte, signatureLength),
 	}
+	mrRecords := data[8 : 8+mrRecordLength]
+	records, _, err := ParseAllMeasurements(mrRecords)
+	if err != nil {
+		return nil, err
+	}
+	if len(records) < int(message.NumberOfBlocks) {
+		return nil, errors.New("number of parsed blocks does not match the number of measurement records")
+	}
+	message.MeasurementRecords = records[:message.NumberOfBlocks]
 
-	copy(message.MeasurementRecord, data[8:8+mrRecordLength])
 	copy(message.Nonce[:], data[8+mrRecordLength:40+mrRecordLength])
 
 	copy(message.OpaqueData, data[42+mrRecordLength:42+mrRecordLength+opaqueLength])
+
+	ParseOpaqueData(message.OpaqueData)
+
 	copy(message.Signature, data[42+mrRecordLength+opaqueLength:42+signatureLength+mrRecordLength+opaqueLength])
 
 	return message, nil

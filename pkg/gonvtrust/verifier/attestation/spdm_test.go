@@ -67,8 +67,13 @@ func TestParseSpdmMeasurementResponseMessage(t *testing.T) {
 	assert.Equal(t, uint8(0x00), res.Param1)
 	assert.Equal(t, uint8(0x00), res.Param2)
 	assert.Equal(t, uint8(64), res.NumberOfBlocks)
-	assert.Equal(t, 3520, len(res.MeasurementRecord))
-	//TODO verify MR Records
+	assert.Equal(t, 64, len(res.MeasurementRecords))
+
+	//Crude check of records
+	for i := 1; i <= int(res.NumberOfBlocks); i++ {
+		assert.Equal(t, uint8(i), res.MeasurementRecords[i-1].Index)
+		assert.Equal(t, uint8(1), res.MeasurementRecords[i-1].MrSpec)
+	}
 	assert.Equal(t, expectedNonce, res.Nonce)
 
 	assert.Equal(t, 354, len(res.OpaqueData))

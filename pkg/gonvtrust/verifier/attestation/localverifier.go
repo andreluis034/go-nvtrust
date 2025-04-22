@@ -12,7 +12,7 @@ type AttestationReport struct {
 	responseData    []byte
 	signatureLength int
 	RequestMessage  SpdmMeasurementRequestMessage
-	ResponseMessag  SpdmMeasurementResponseMessage
+	ResponseMessage SpdmMeasurementResponseMessage
 }
 
 func (a *AttestationReport) VerifySignature(cert *x509.Certificate, hash hash.Hash) bool {
@@ -51,7 +51,7 @@ func ParseAttestationReport(data []byte, signatureLength int) (*AttestationRepor
 		responseData:    data[37:],
 		signatureLength: signatureLength,
 		RequestMessage:  *req,
-		ResponseMessag:  *res,
+		ResponseMessage: *res,
 	}
 	return &att, nil
 }
