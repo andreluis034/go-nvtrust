@@ -1,6 +1,7 @@
 package attestation
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 )
@@ -112,6 +113,10 @@ type OpaqueData struct {
 	Fields           map[OpaqueFieldID]any
 }
 
+func (od OpaqueData) GetDataAsString(field OpaqueFieldID) string {
+	return string(bytes.Trim(od.Fields[field].([]byte), "\x00"))
+}
+
 func parseMeasurementCount(data []byte) []uint32 {
 	out := []uint32{}
 	if len(data)%4 != 0 {
@@ -132,14 +137,15 @@ func ParseOpaqueData(data []byte) (od OpaqueData) {
 	for i := 0; i < len(data); {
 		dataType := OpaqueFieldID(binary.LittleEndian.Uint16(data[i : i+2]))
 		dataSize := binary.LittleEndian.Uint16(data[i+2 : i+4])
+		dataValue := data[i+4 : i+4+int(dataSize)]
 
 		if dataType == OpaqueFieldID_Msrscnt {
-			od.MeasurementCount = parseMeasurementCount(data[i+4 : i+4+int(dataSize)])
+			od.MeasurementCount = parseMeasurementCount(dataValue)
 		} else if dataType == OpaqueFieldID_SwitchPdi {
 			//TODO Is this used by anyone/anywhere?
 		}
 		od.Fields[dataType] = data[i+4 : i+4+int(dataSize)]
-
+		fmt.Printf("%s(%d) = %x (%s)\n", dataType, dataType, dataValue, string(dataValue))
 		i += 4 + int(dataSize)
 	}
 

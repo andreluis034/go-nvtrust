@@ -76,7 +76,6 @@ func TestParseSpdmMeasurementResponseMessage(t *testing.T) {
 	}
 	assert.Equal(t, expectedNonce, res.Nonce)
 
-	assert.Equal(t, 354, len(res.OpaqueData))
 	//TODO verify OpaqueData
 
 	assert.Equal(t, expectedSignature[:], res.Signature)

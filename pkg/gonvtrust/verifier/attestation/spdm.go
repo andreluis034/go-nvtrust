@@ -40,7 +40,7 @@ type SpdmMeasurementResponseMessage struct {
 	NumberOfBlocks      uint8
 	MeasurementRecords  []MeasurementRecord
 	Nonce               [32]byte
-	OpaqueData          []byte
+	OpaqueData          OpaqueData
 	Signature           []byte
 }
 
@@ -59,7 +59,6 @@ func ParseSpdmMeasurementResponseMessage(data []byte, signatureLength int) (*Spd
 		NumberOfBlocks:      data[4],
 		MeasurementRecords:  nil,
 		Nonce:               [32]byte{},
-		OpaqueData:          make([]byte, opaqueLength),
 		Signature:           make([]byte, signatureLength),
 	}
 	mrRecords := data[8 : 8+mrRecordLength]
@@ -74,9 +73,7 @@ func ParseSpdmMeasurementResponseMessage(data []byte, signatureLength int) (*Spd
 
 	copy(message.Nonce[:], data[8+mrRecordLength:40+mrRecordLength])
 
-	copy(message.OpaqueData, data[42+mrRecordLength:42+mrRecordLength+opaqueLength])
-
-	ParseOpaqueData(message.OpaqueData)
+	message.OpaqueData = ParseOpaqueData(data[42+mrRecordLength : 42+mrRecordLength+opaqueLength])
 
 	copy(message.Signature, data[42+mrRecordLength+opaqueLength:42+signatureLength+mrRecordLength+opaqueLength])
 
