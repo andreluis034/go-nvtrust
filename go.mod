@@ -1,8 +1,20 @@
 module github.com/confidentsecurity/go-nvtrust
 
-go 1.22.0
+go 1.23.0
 
-require github.com/NVIDIA/go-nvml v0.12.4-0
+toolchain go1.23.1
+
+require (
+	github.com/NVIDIA/go-nvml v0.12.4-0
+	github.com/beevik/etree v1.5.0
+	github.com/russellhaering/goxmldsig v1.5.0
+	golang.org/x/crypto v0.37.0
+)
+
+require (
+	github.com/jonboulle/clockwork v0.5.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
