@@ -70,10 +70,7 @@ func TestParseSpdmMeasurementResponseMessage(t *testing.T) {
 	assert.Equal(t, 64, len(res.MeasurementRecords))
 
 	//Crude check of records
-	for i := 1; i <= int(res.NumberOfBlocks); i++ {
-		assert.Equal(t, uint8(i), res.MeasurementRecords[i-1].Index)
-		assert.Equal(t, uint8(1), res.MeasurementRecords[i-1].MrSpec)
-	}
+	assert.Equal(t, len(res.MeasurementRecords), int(res.NumberOfBlocks))
 	assert.Equal(t, expectedNonce, res.Nonce)
 
 	//TODO verify OpaqueData

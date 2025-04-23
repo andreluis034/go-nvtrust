@@ -38,10 +38,24 @@ type SpdmMeasurementResponseMessage struct {
 	Param1              uint8
 	Param2              uint8
 	NumberOfBlocks      uint8
-	MeasurementRecords  []MeasurementRecord
+	MeasurementRecords  map[uint8]MeasurementRecord
 	Nonce               [32]byte
 	OpaqueData          OpaqueData
 	Signature           []byte
+}
+
+func (r *SpdmMeasurementResponseMessage) IsMeasurementValid(index int) bool {
+	if index != 36 {
+		return true
+	}
+
+	nvdec_status, ok := r.OpaqueData.Fields[OpaqueFieldID_Nvdec0Status].([]byte)
+
+	if !ok || len(nvdec_status) == 0 { // opaque data does not exist, so assume nvdec is disabled
+		return false
+	}
+
+	return NVDecStatus(nvdec_status[0]) == NVDecStatus_Enabled
 }
 
 func ParseSpdmMeasurementResponseMessage(data []byte, signatureLength int) (*SpdmMeasurementResponseMessage, error) {
@@ -57,7 +71,7 @@ func ParseSpdmMeasurementResponseMessage(data []byte, signatureLength int) (*Spd
 		Param1:              data[2],
 		Param2:              data[3],
 		NumberOfBlocks:      data[4],
-		MeasurementRecords:  nil,
+		MeasurementRecords:  make(map[uint8]MeasurementRecord),
 		Nonce:               [32]byte{},
 		Signature:           make([]byte, signatureLength),
 	}
@@ -69,7 +83,9 @@ func ParseSpdmMeasurementResponseMessage(data []byte, signatureLength int) (*Spd
 	if len(records) < int(message.NumberOfBlocks) {
 		return nil, errors.New("number of parsed blocks does not match the number of measurement records")
 	}
-	message.MeasurementRecords = records[:message.NumberOfBlocks]
+	for _, record := range records {
+		message.MeasurementRecords[record.Index] = record
+	}
 
 	copy(message.Nonce[:], data[8+mrRecordLength:40+mrRecordLength])
 

@@ -6,6 +6,13 @@ import (
 	"fmt"
 )
 
+type NVDecStatus uint8
+
+const (
+	NVDecStatus_Disabled = 0x55
+	NVDecStatus_Enabled  = 0xAA
+)
+
 type OpaqueFieldID uint16
 
 const (
