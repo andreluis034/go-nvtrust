@@ -4,14 +4,15 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	_ "embed"
+	"encoding/pem"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/beevik/etree"
 	dsig "github.com/russellhaering/goxmldsig"
-	"github.com/russellhaering/goxmldsig/types"
 )
 
 //go:embed nvidia_corim_signing_ca.pem
@@ -31,17 +32,18 @@ type RimInfo struct {
 }
 
 type SoftwareIdentity struct {
-	Corpus       bool            `xml:"corpus,attr"`
-	Name         string          `xml:"name,attr"`
-	Patch        bool            `xml:"patch,attr"`
-	Supplemental bool            `xml:"supplemental,attr"`
-	TagID        string          `xml:"tagId,attr"`
-	Version      string          `xml:"version,attr"`
-	TagVersion   string          `xml:"tagVersion,attr"`
-	Entity       Entity          `xml:"Entity"`
-	Meta         Meta            `xml:"Meta"`
-	Payload      Payload         `xml:"Payload"`
-	Signature    types.Signature `xml:"Signature"`
+	Corpus       bool    `xml:"corpus,attr"`
+	Name         string  `xml:"name,attr"`
+	Patch        bool    `xml:"patch,attr"`
+	Supplemental bool    `xml:"supplemental,attr"`
+	TagID        string  `xml:"tagId,attr"`
+	Version      string  `xml:"version,attr"`
+	TagVersion   string  `xml:"tagVersion,attr"`
+	Entity       Entity  `xml:"Entity"`
+	Meta         Meta    `xml:"Meta"`
+	Payload      Payload `xml:"Payload"`
+
+	signingCertificates []*x509.Certificate
 }
 
 type Entity struct {
@@ -54,10 +56,11 @@ type Payload struct {
 }
 
 type Meta struct {
-	Edition  string     `xml:"edition,attr"`
-	Product  string     `xml:"product,attr"`
-	Revision string     `xml:"revision,attr"`
-	Attrs    []xml.Attr `xml:",any,attr"`
+	Edition           string     `xml:"edition,attr"`
+	Product           string     `xml:"product,attr"`
+	Revision          string     `xml:"revision,attr"`
+	ColloquialVersion string     `xml:"colloquialVersion,attr"`
+	Attrs             []xml.Attr `xml:",any,attr"`
 }
 
 type ResourceType string
@@ -117,26 +120,58 @@ type KeyInfo struct {
 	XMLName xml.Name `xml:"KeyInfo"`
 }
 
-func (info *RimInfo) VerifyHash() bool {
-	return fmt.Sprintf("%x", sha256.Sum256(info.Rim)) == info.Sha256
+type RimInfoVerificationOptions struct {
+	CurrentTime time.Time
+	RootCA      *x509.CertPool
 }
 
-func verifyCertificateChain(rootCA *x509.Certificate, intermediateCA []*x509.Certificate, leaf *x509.Certificate, time time.Time) error {
+func (s *SoftwareIdentity) GetCertificates() []*x509.Certificate {
+	return s.signingCertificates
+}
+
+func GetNvidiaRimCa() *x509.CertPool {
+	rootCertPool := x509.NewCertPool()
+
+	block, _ := pem.Decode([]byte(NvidiaCorimSigningCa))
+	if block != nil {
+		parsedCert, err := x509.ParseCertificate(block.Bytes)
+		if err == nil {
+			rootCertPool.AddCert(parsedCert)
+		}
+	}
+
+	return rootCertPool
+}
+
+func DefaultRimInfoVerificationOptions() RimInfoVerificationOptions {
+
+	return RimInfoVerificationOptions{
+		CurrentTime: time.Now(),
+		RootCA:      GetNvidiaRimCa(),
+	}
+}
+
+func (info *RimInfo) Verify(options *RimInfoVerificationOptions) (*SoftwareIdentity, error) {
+	if fmt.Sprintf("%x", sha256.Sum256(info.Rim)) != info.Sha256 {
+		return nil, errors.New("hash verification of rim failed")
+	}
+	return VerifyRimTcgSignature(string(info.Rim), options)
+}
+
+func verifyCertificateChain(rootPool *x509.CertPool, intermediateCA []*x509.Certificate, leaf *x509.Certificate, time time.Time) error {
 	inter := x509.NewCertPool()
-	root := x509.NewCertPool()
 	for i := 0; i < len(intermediateCA); i++ {
 		inter.AddCert(intermediateCA[i])
 	}
-	root.AddCert(rootCA)
 	_, err := leaf.Verify(x509.VerifyOptions{
 		Intermediates: inter,
-		Roots:         root,
+		Roots:         rootPool,
 		CurrentTime:   time,
 	})
 	return err
 }
 
-func VerifyRimTcgSignature(rim string, rootCA *x509.Certificate, currentTime time.Time) (*SoftwareIdentity, error) {
+func VerifyRimTcgSignature(rim string, options *RimInfoVerificationOptions) (*SoftwareIdentity, error) {
 	doc := etree.NewDocument()
 	err := doc.ReadFromString(rim)
 	if err != nil {
@@ -150,7 +185,7 @@ func VerifyRimTcgSignature(rim string, rootCA *x509.Certificate, currentTime tim
 		return nil, err
 	}
 
-	if err = verifyCertificateChain(rootCA, certs[1:len(certs)-1], certs[0], currentTime); err != nil {
+	if err = verifyCertificateChain(options.RootCA, certs[1:len(certs)-1], certs[0], options.CurrentTime); err != nil {
 		return nil, err
 	}
 
@@ -182,6 +217,8 @@ func VerifyRimTcgSignature(rim string, rootCA *x509.Certificate, currentTime tim
 	if err != nil {
 		return nil, err
 	}
+
+	identity.signingCertificates = certs
 
 	return &identity, nil
 }
