@@ -188,8 +188,8 @@ func verifyAttestationReport(report *attestation.AttestationReport, signingCert 
 			return errors.New("driver version in the report does not math the version from the rim manifest")
 		}
 		vBiosVersion := FormatVbiosVersion(report.ResponseMessage.OpaqueData.Fields[attestation.OpaqueFieldID_VbiosVersion].([]byte))
-		if vBiosVersion != options.manifest.vbiosIdentity.Meta.ColloquialVersion {
-			return errors.New("driver version in the report does not math the version from the rim manifest")
+		if vBiosVersion != strings.ToLower(options.manifest.vbiosIdentity.Meta.ColloquialVersion) {
+			return errors.New("vbios version in the report does not math the version from the rim manifest")
 		}
 		if err = verifyReportMeasurements(report, options.manifest.vbiosIdentity, options.manifest.driverIdentity); err != nil {
 			return
@@ -212,7 +212,7 @@ func verifyOcsp(gpuCertChain []*x509.Certificate, options *Options) (err error) 
 		}
 
 		vbiosChain := options.manifest.vbiosIdentity.GetCertificates()
-		if driverChain == nil {
+		if vbiosChain == nil {
 			return errors.New("failed to extract certificates from driver rim")
 		}
 
