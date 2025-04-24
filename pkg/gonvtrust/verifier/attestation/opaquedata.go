@@ -152,7 +152,6 @@ func ParseOpaqueData(data []byte) (od OpaqueData) {
 			//TODO Is this used by anyone/anywhere?
 		}
 		od.Fields[dataType] = data[i+4 : i+4+int(dataSize)]
-		fmt.Printf("%s(%d) = %x (%s)\n", dataType, dataType, dataValue, string(dataValue))
 		i += 4 + int(dataSize)
 	}
 
